@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'data/lab3_repository.dart';
 import 'screens/home_screen.dart';
+import 'state/lab3_cubit.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_text_styles.dart';
 
 void main() {
-  runApp(const FitnessApp());
+  runApp(
+    BlocProvider(
+      create: (_) => Lab3Cubit(Lab3Repository())..load(),
+      child: const FitnessApp(),
+    ),
+  );
 }
 
 /// Aplicația de fitness după designul Figma „Laboratoare 2026” — varianta 3.
