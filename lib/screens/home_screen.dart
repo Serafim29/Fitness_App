@@ -1,285 +1,211 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../models/fitness_data.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
-import '../widgets/category_chip.dart';
-import '../widgets/featured_card.dart';
-import '../widgets/program_card.dart';
-import '../widgets/progress_ring.dart';
-import '../widgets/section_header.dart';
-import 'gym_detail_screen.dart';
+import '../models/lab3_data.dart';
+import '../state/lab3_cubit.dart';
+import '../widgets/lab3_cards.dart';
+import 'gym_json_detail_screen.dart';
 
-/// Ecranul „21. Home v2” din Figma.
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  static const double _gutter = 24;
-
-  String _selectedCategory = workoutCategories.first;
-  int _challengeDone = 15;
-  final int _challengeTotal = 20;
-
-  List<WorkoutProgram> get _visiblePrograms => _selectedCategory == 'All Type'
-      ? workoutPrograms
-      : workoutPrograms
-          .where((p) => p.categories.contains(_selectedCategory))
-          .toList();
-
-  void _openGym() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const GymDetailScreen(gym: midCityGym),
-      ),
-    );
-  }
-
-  void _showMessage(String text) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(text),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.greyscale900,
+  Widget build(BuildContext context) => BlocBuilder<Lab3Cubit, Lab3State>(
+    builder: (context, state) {
+      if (state.status == LoadStatus.loading) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      if (state.status == LoadStatus.error) {
+        return Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Nu am putut încărca datele.'),
+                  const SizedBox(height: 12),
+                  Text(state.error ?? ''),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: context.read<Lab3Cubit>().load,
+                    child: const Text('Reîncearcă'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      final data = state.data!;
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Fitness'),
+          actions: [
+            IconButton(
+              tooltip: 'Sală de fitness',
+              onPressed: () => _openGym(context, data.gym),
+              icon: const Icon(Icons.location_on_outlined),
+            ),
+          ],
         ),
-      );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: AppColors.greyscale0,
         body: SafeArea(
-          bottom: false,
           child: ListView(
-            padding: const EdgeInsets.only(top: 16, bottom: 17),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              _buildGreeting(),
-              const SizedBox(height: 29),
-              _buildChallenge(),
-              const SizedBox(height: 24),
-              _buildFeatured(),
-              const SizedBox(height: 24),
-              _buildPrograms(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGreeting() {
-    final DateTime now = DateTime.now();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _gutter),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  formatDate(now),
-                  style: AppTextStyles.smallRegular
-                      .copyWith(color: AppColors.greyscale400),
+              _challenge(context, data.challenge),
+              _heading(context, 'Featured Plans'),
+              SizedBox(
+                height: 170,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: data.featuredPlans.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => FeaturedPlanCard(
+                    plan: data.featuredPlans[i],
+                    onTap: () => _openGym(context, data.gym),
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(greetingFor(now), style: AppTextStyles.h6),
-              ],
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: 'Notifications',
-            child: GestureDetector(
-              onTap: () => _showMessage('You have 1 new notification'),
-              child: SvgPicture.asset(AppIcons.bellButton,
-                  width: 48, height: 48),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChallenge() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _gutter),
-      child: GestureDetector(
-        onTap: () {
-          if (_challengeDone < _challengeTotal) {
-            setState(() => _challengeDone++);
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColors.greyscale900,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              _heading(context, 'Workout Programs'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Search programs',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: context.read<Lab3Cubit>().setQuery,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 42,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: data.filters
+                      .map(
+                        (filter) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(filter),
+                            selected: state.category == filter,
+                            onSelected: (_) =>
+                                context.read<Lab3Cubit>().setCategory(filter),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
                   children: [
-                    Text(
-                      'Today’s Challenge',
-                      style: AppTextStyles.smallRegular
-                          .copyWith(color: AppColors.greyscale300),
+                    const Text('Sort by:'),
+                    const SizedBox(width: 8),
+                    DropdownButton<ProgramSort>(
+                      value: state.sort,
+                      items: const [
+                        DropdownMenuItem(
+                          value: ProgramSort.name,
+                          child: Text('Name'),
+                        ),
+                        DropdownMenuItem(
+                          value: ProgramSort.calories,
+                          child: Text('Calories'),
+                        ),
+                        DropdownMenuItem(
+                          value: ProgramSort.duration,
+                          child: Text('Duration'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          context.read<Lab3Cubit>().setSort(value);
+                        }
+                      },
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Running',
-                      style: AppTextStyles.h6
-                          .copyWith(color: AppColors.greyscale0),
+                    const Spacer(),
+                    const Text('Favorites'),
+                    Switch(
+                      value: state.favoritesOnly,
+                      onChanged: context.read<Lab3Cubit>().setFavoritesOnly,
                     ),
                   ],
                 ),
               ),
-              ProgressRing(value: _challengeDone, total: _challengeTotal),
+              if (state.visiblePrograms.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: Text('No programs found')),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: state.visiblePrograms.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 190,
+                        ),
+                    itemBuilder: (context, i) {
+                      final item = state.visiblePrograms[i];
+                      return WorkoutProgramCard(
+                        program: item,
+                        isFavorite: state.favoriteIds.contains(item.id),
+                        onFavorite: () =>
+                            context.read<Lab3Cubit>().toggleFavorite(item.id),
+                        onTap: () => _openGym(context, data.gym),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
+      );
+    },
+  );
+
+  Widget _challenge(BuildContext context, ChallengeData data) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+    child: Card(
+      color: Colors.black87,
+      child: ListTile(
+        title: Text(data.title, style: const TextStyle(color: Colors.white70)),
+        subtitle: Text(
+          data.activity,
+          style: const TextStyle(color: Colors.white, fontSize: 18),
+        ),
+        trailing: CircularProgressIndicator(
+          value: data.completed / data.total,
+          backgroundColor: Colors.white24,
+          color: Colors.greenAccent,
+        ),
       ),
-    );
-  }
+    ),
+  );
 
-  Widget _buildFeatured() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: _gutter),
-          child: SectionHeader(
-            title: 'Featured Plan',
-            onSeeAll: () => _showMessage('All featured plans'),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: FeaturedCard.height,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: _gutter),
-            itemCount: featuredPlans.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 16),
-            itemBuilder: (_, i) =>
-                FeaturedCard(plan: featuredPlans[i], onStart: _openGym),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _heading(BuildContext context, String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.titleLarge
+          ?.copyWith(fontWeight: FontWeight.bold),
+    ),
+  );
 
-  Widget _buildPrograms() {
-    final List<WorkoutProgram> programs = _visiblePrograms;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: _gutter),
-          child: SectionHeader(
-            title: 'Workout Programs',
-            onSeeAll: () =>
-                setState(() => _selectedCategory = workoutCategories.first),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 30,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: _gutter),
-            itemCount: workoutCategories.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) {
-              final String category = workoutCategories[i];
-              return CategoryChip(
-                label: category,
-                selected: category == _selectedCategory,
-                onTap: () => setState(() => _selectedCategory = category),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: _gutter),
-          child: programs.isEmpty
-              ? SizedBox(
-                  height: 184,
-                  child: Center(
-                    child: Text(
-                      'No programs in this category yet',
-                      style: AppTextStyles.smallRegular
-                          .copyWith(color: AppColors.greyscale400),
-                    ),
-                  ),
-                )
-              : GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: programs.length,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    mainAxisExtent: 184,
-                  ),
-                  itemBuilder: (_, i) =>
-                      ProgramCard(program: programs[i], onTap: _openGym),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-const List<String> _weekdays = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
-
-const List<String> _months = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-/// Formatează data ca în design: „Friday, 20 May”.
-String formatDate(DateTime date) =>
-    '${_weekdays[date.weekday - 1]}, ${date.day} ${_months[date.month - 1]}';
-
-/// Salutul se schimbă în funcție de ora zilei.
-String greetingFor(DateTime date) {
-  if (date.hour < 12) return 'Good Morning';
-  if (date.hour < 18) return 'Good Afternoon';
-  return 'Good Evening';
+  void _openGym(BuildContext context, GymData gym) => Navigator.of(context)
+      .push(
+        MaterialPageRoute<void>(builder: (_) => GymJsonDetailScreen(gym: gym)),
+      );
 }
