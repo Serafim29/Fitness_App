@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../models/lab3_data.dart';
+import '../domain/entities/lab3_data.dart';
 import '../state/lab3_cubit.dart';
 import '../widgets/lab3_cards.dart';
 import 'gym_json_detail_screen.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../data/lab3_repository.dart';
-import '../models/lab3_data.dart';
+import '../domain/usecases/load_lab3_data.dart';
+import '../domain/entities/lab3_data.dart';
 
 enum LoadStatus { loading, success, error }
 
@@ -55,14 +55,14 @@ class Lab3State {
 }
 
 class Lab3Cubit extends Cubit<Lab3State> {
-  Lab3Cubit(this._repository) : super(const Lab3State());
-  final Lab3Repository _repository;
+  Lab3Cubit(this._loadLab3Data) : super(const Lab3State());
+  final LoadLab3Data _loadLab3Data;
 
   Future<void> load() async {
     emit(const Lab3State(status: LoadStatus.loading));
     try {
       emit(
-        Lab3State(status: LoadStatus.success, data: await _repository.load()),
+        Lab3State(status: LoadStatus.success, data: await _loadLab3Data()),
       );
     } catch (error) {
       emit(Lab3State(status: LoadStatus.error, error: error.toString()));
