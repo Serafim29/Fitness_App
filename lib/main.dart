@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'data/lab3_repository.dart';
+import 'data/lab3_remote_data_source.dart';
+import 'domain/usecases/load_lab3_data.dart';
 import 'screens/home_screen.dart';
 import 'state/lab3_cubit.dart';
 import 'theme/app_colors.dart';
@@ -10,7 +12,9 @@ import 'theme/app_text_styles.dart';
 void main() {
   runApp(
     BlocProvider(
-      create: (_) => Lab3Cubit(Lab3Repository())..load(),
+      create: (_) => Lab3Cubit(
+        LoadLab3Data(Lab3RepositoryImpl(Lab3RemoteDataSource())),
+      )..load(),
       child: const FitnessApp(),
     ),
   );

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/lab3_data.dart';
+import '../domain/entities/lab3_data.dart';
 
 class FeaturedPlanCard extends StatelessWidget {
   const FeaturedPlanCard({super.key, required this.plan, required this.onTap});
